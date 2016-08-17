@@ -1,0 +1,1 @@
+cmd_/home/cference/Code/reverse/reverse/reverse.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/cference/Code/reverse/reverse/reverse.ko /home/cference/Code/reverse/reverse/reverse.o /home/cference/Code/reverse/reverse/reverse.mod.o

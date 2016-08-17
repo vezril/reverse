@@ -1,0 +1,123 @@
+// Copyright (c) <year> <copyright holders>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/wait.h>
+#include <linux/device.h>
+#include <asm/atomic.h>
+#include <asm/uaccess.h>
+#include <linux/semaphore.h>
+#include <linux/capability.h>
+#include <linux/cdev.h>
+#include <linux/types.h>
+#include <linux/errno.h>
+#include <linux/fcntl.h>
+#include <linux/delay.h>
+
+#include "reverse.h"
+
+#define READWRITE_BUFSIZE 16
+#define DEFAULT_BUFSIZE 512
+
+#define DEV_MINOR 0x00
+#define DEV_MINORS 0x01
+
+MODULE_AUTHOR("Calvin Ference");
+MODULE_LICENSE("GPL");
+
+struct file_operations rev_fops = {
+        .owner = THIS_MODULE,
+        .open = rev_open,
+        .release = rev_release,
+        .read = rev_read,
+        .write = rev_write,
+        .unlocked_ioctl = rev_ioctl
+};
+
+struct rev_buff {
+        unsigned int buf_size;
+        unsigned char *buffer;
+} buffer;
+
+struct buf_dev {
+        unsigned char write_buf;
+        unsigned char read_buf;
+        struct semaphore sem;
+        dev_t dev;
+        struct cdev cdev;
+        struct class *cclass;
+} rdev;
+
+static int __init rev_init(void){
+        int retval = 0;
+        int res;
+        printk("reverse module init...\n");
+
+        // Init the buffer
+        buffer.buf_size = DEFAULT_BUFSIZE;
+        buffer.buffer = (unsigned char *) kmalloc(DEFAULT_BUFSIZE * sizeof(unsigned char), GFP_KERNEL);
+
+        if(!buffer.buffer)
+                retval = -ENOMEM;
+
+        rdev.read_buf = (unsigned char *) kmalloc(READWRITE_BUFSIZE * sizeof(unsigned char), GFP_KERNEL);
+        rdev.write_buf = (unsigned char *) kmalloc(READWRITE_BUFSIZE * sizeof(unsigned char), GFP_KERNEL);
+        if(!rdev.read_buf)
+                retval = -ENOMEM;
+        if(!rdev.write_buf)
+                retval = -ENOMEM;
+        sema_init(&rdev.sem, 1);
+
+        res = alloc_chrdev_region(&rdev.dev, DEV_MINOR, DEV_MINORS, "Reverser");
+        cdev_init(&rdev.cdev, &rev_fops);
+        rdev.cdev.owner = THIS_MODULE;
+        rdev.cdev.ops = &rev_fops;
+        res = cdev_add(&rdev.cdev, &rev_fops, 1);
+
+        return retval;
+}
+
+int rev_open(struct inode *inode, struct file *filp){
+        return 0;
+}
+
+int rev_release(struct inode *inode, struct file *filp) {
+        return 0;
+}
+
+ssize_t rev_read(struct file *flip, char __user *ubuf, size_t count, loff_t *f_ops){
+        return 0;
+}
+
+ssize_t rev_write(struct file *filp, const char __user *ubuf, size_t count, loff_t *f_ops) {
+        return 0;
+}
+
+long rev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+        return 0;
+}
+
+static void __exit rev_exit(void) {
+        kfree(buffer.buffer);
+        kfree(rdev.write_buf);
+        kfree(rdev.read_buf);
+
+        cdev_del(&rdev.cdev);
+        device_destroy(rdev.cclass, rdev.dev);
+        class_destroy(rdev.cclass);
+        unregister_chrdev_region(rdev.dev, DEV_MINORS);
+        printk("Reverse module exit\n");
+}
+
+module_init(rev_init);
+module_exit(rev_exit);
